@@ -16,15 +16,34 @@ use App\Models\tb_transporte_lugares;
 use App\Models\tb_transporte_solicitudes_seleccionados;
 use App\Models\tb_egresados;
 use App\Models\tb_egresados_totales;
+use Illuminate\Support\Facades\Http;
 
 class main extends Controller
 {
    public function ingreso()
    {
+      $response= Http::get('http://127.0.0.1:8000/ingresos');
+      if($response->successful()){
+         $ingresos=$response->json();
+      } else {
+         $ingresos=[];
+      }
+
+      $response2= Http::get('http://127.0.0.1:8000/equivalencias');
+      if($response2->successful()){
+         $equivalencias=$response2->json();
+      } else {
+         $equivalencias=[];
+      }
+
+      $response3= Http::get('http://127.0.0.1:8000/maestrias');
+      if($response3->successful()){
+         $maestrias=$response3->json();
+      } else {
+         $maestrias=[];
+      }
+
       // traer de la tabla tb_admision todos los registros
-      $ingresos = tb_admision::all();
-      $maestrias = tb_maestria::all();
-      $equivalencias = tb_equivalencia::all();
       $ningresos = tb_nuevo_ingreso::all();
       $reingresos = tb_re_ingreso::all();
       // retornar con Inertia a menusComponentes/TabMenu y pasarle los registros
@@ -41,9 +60,22 @@ class main extends Controller
    }
 
    public function egresados(){
-      $egresados = tb_egresados::all();
+      $response4= Http::get('http://127.0.0.1:8000/egresados');
+      if($response4->successful()){
+         $egresados=$response4->json();
+      } else {
+         $egresados=[];
+      }
+
+      $response5= Http::get('http://127.0.0.1:8000/egresadostotales');
+      if($response5->successful()){
+         $egresadostotales=$response5->json();
+      } else {
+         $egresadostotales=[];
+      }
+
       $egresados_totales = tb_egresados_totales::all();
-      return Inertia::render('menusComponentes/Egresados/TabMenuEgre',['egresados'=>$egresados,'totales'=>$egresados_totales]);
+      return Inertia::render('menusComponentes/Egresados/TabMenuEgre',['egresados'=>$egresados,'totales'=>$egresadostotales]);
    }
 
    public function titulados(){
