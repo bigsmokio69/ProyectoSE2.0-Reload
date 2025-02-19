@@ -8,3 +8,5 @@ node_modules\.vite\deps
 public/hot
 # vs code 
 .vscode
+
+.env
