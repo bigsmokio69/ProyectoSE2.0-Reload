@@ -43,8 +43,17 @@ class main extends Controller
          $maestrias=[];
       }
 
+      $response4= Http::get('http://127.0.0.1:8000/nuevosIngresos');
+      if($response4->successful()){
+         $ningresos=$response4->json();
+      } else {
+         $ningresos=[];
+      }
+   
       // traer de la tabla tb_admision todos los registros
-      $ningresos = tb_nuevo_ingreso::all();
+      //reingresos no se modificó ni se realizó una consutlta.
+      //En caso de que se mejore, acceder a la API de Bestias_de_las_APIs para realizar nueva consulta y colocarla en este 
+      //apartado
       $reingresos = tb_re_ingreso::all();
       // retornar con Inertia a menusComponentes/TabMenu y pasarle los registros
       return Inertia::render('menusComponentes/Ingreso/TabMenu', ['maestrias' => $maestrias,'ingresos' => $ingresos, 'equivalencias' => $equivalencias, 'ningresos' => $ningresos, 'reingresos' => $reingresos]);
@@ -79,8 +88,16 @@ class main extends Controller
    }
 
    public function titulados(){
+
+      
       // traer de la tabla tb_indicador_titulados todos los registros
-      $titulados = tb_indicador_titulados::all();
+      $response= Http::get('http://127.0.0.1:8000/titulados');
+      if($response->successful()){
+         $titulados=$response->json();
+      } else {
+         $titulados=[];
+      }
+
 
       // retornar con Inertia a menusComponentes/TabMenu y pasarle los registros
       return Inertia::render('menusComponentes/Titulo/TabMenuTitu', ['titulados' => $titulados]);
@@ -91,8 +108,22 @@ class main extends Controller
    }
 
    public function transporte(){
-      $solicitudes = tb_transporte_solicitudes_seleccionados::all();
-      $rutas = tb_transporte_lugares::all();
+
+      $response= Http::get('http://127.0.0.1:8000/transporte_solicitudes');
+      if($response->successful()){
+         $solicitudes=$response->json();
+      } else {
+         $solicitudes=[];
+      }
+
+      
+      $response2= Http::get('http://127.0.0.1:8000/rutas');
+      if($response2->successful()){
+         $rutas=$response2->json();
+      } else {
+         $rutas=[];
+      }
+
       return Inertia::render('menusComponentes/Transporte/TabMenu',['solicitudes'=> $solicitudes,'rutas'=>$rutas]);
    }
 
