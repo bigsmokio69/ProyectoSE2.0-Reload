@@ -20,43 +20,86 @@ use Illuminate\Support\Facades\Http;
 
 class main extends Controller
 {
+   private function getAuthToken()
+{
+   $response = Http::asForm()->post('http://127.0.0.1:8000/token', [
+      'username' => 'admin', // Cambia esto por el usuario correcto
+      'password' => 'adminpassword', // Cambia esto por la contraseña correcta
+   ]);
+
+   if ($response->successful()) {
+      return $response->json()['access_token'];
+   } else {
+      // Imprimir el error para depuración
+      \Log::error('Error al obtener el token: ' . $response->body());
+      throw new \Exception("Error al obtener el token de autenticación: " . $response->body());
+   }
+}
+
    public function ingreso()
    {
-      $response= Http::get('http://127.0.0.1:8000/ingresos');
-      if($response->successful()){
-         $ingresos=$response->json();
-      } else {
-         $ingresos=[];
-      }
+      try {
+         // Obtener el token de autenticación
+         $token = $this->getAuthToken();
 
-      $response2= Http::get('http://127.0.0.1:8000/equivalencias');
-      if($response2->successful()){
-         $equivalencias=$response2->json();
-      } else {
-         $equivalencias=[];
-      }
+         // Realizar solicitudes a los endpoints protegidos
+         $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+         ])->get('http://127.0.0.1:8000/ingresos');
 
-      $response3= Http::get('http://127.0.0.1:8000/maestrias');
-      if($response3->successful()){
-         $maestrias=$response3->json();
-      } else {
-         $maestrias=[];
-      }
+         if ($response->successful()) {
+            $ingresos = $response->json();
+         } else {
+            $ingresos = [];
+         }
 
-      $response4= Http::get('http://127.0.0.1:8000/nuevosIngresos');
-      if($response4->successful()){
-         $ningresos=$response4->json();
-      } else {
-         $ningresos=[];
+         $response2 = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+         ])->get('http://127.0.0.1:8000/equivalencias');
+
+         if ($response2->successful()) {
+            $equivalencias = $response2->json();
+         } else {
+            $equivalencias = [];
+         }
+
+         $response3 = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+         ])->get('http://127.0.0.1:8000/maestrias');
+
+         if ($response3->successful()) {
+            $maestrias = $response3->json();
+         } else {
+            $maestrias = [];
+         }
+
+         $response4 = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+         ])->get('http://127.0.0.1:8000/nuevosIngresos');
+
+         if ($response4->successful()) {
+            $ningresos = $response4->json();
+         } else {
+            $ningresos = [];
+         }
+
+         // Traer de la tabla tb_admision todos los registros
+         $reingresos = tb_re_ingreso::all();
+
+         // Retornar con Inertia a menusComponentes/TabMenu y pasarle los registros
+         return Inertia::render('menusComponentes/Ingreso/TabMenu', [
+            'maestrias' => $maestrias,
+            'ingresos' => $ingresos,
+            'equivalencias' => $equivalencias,
+            'ningresos' => $ningresos,
+            'reingresos' => $reingresos,
+         ]);
+      } catch (\Exception $e) {
+         // Manejar errores (por ejemplo, mostrar un mensaje de error)
+         return Inertia::render('menusComponentes/Ingreso/TabMenu', [
+            'error' => $e->getMessage(),
+         ]);
       }
-   
-      // traer de la tabla tb_admision todos los registros
-      //reingresos no se modificó ni se realizó una consutlta.
-      //En caso de que se mejore, acceder a la API de Bestias_de_las_APIs para realizar nueva consulta y colocarla en este 
-      //apartado
-      $reingresos = tb_re_ingreso::all();
-      // retornar con Inertia a menusComponentes/TabMenu y pasarle los registros
-      return Inertia::render('menusComponentes/Ingreso/TabMenu', ['maestrias' => $maestrias,'ingresos' => $ingresos, 'equivalencias' => $equivalencias, 'ningresos' => $ningresos, 'reingresos' => $reingresos]);
    }
 
 
