@@ -142,64 +142,128 @@ private function generarTokenCSRF()
       return Inertia::render('menusComponentes/Matricula');
    }
 
-   public function egresados(){
-      $response4= Http::get('http://127.0.0.1:8000/egresados');
-      if($response4->successful()){
-         $egresados=$response4->json();
-      } else {
-         $egresados=[];
-      }
-
-      $response5= Http::get('http://127.0.0.1:8000/egresadostotales');
-      if($response5->successful()){
-         $egresadostotales=$response5->json();
-      } else {
-         $egresadostotales=[];
-      }
-
-      $egresados_totales = tb_egresados_totales::all();
-      return Inertia::render('menusComponentes/Egresados/TabMenuEgre',['egresados'=>$egresados,'totales'=>$egresadostotales]);
+   public function egresados()
+   {
+       try {
+           // Obtener el token de autenticación
+           $token = $this->getAuthToken();
+   
+           // Generar el token CSRF
+           $csrfToken = $this->generarTokenCSRF();
+   
+           // Realizar solicitudes a los endpoints protegidos
+           $response4 = Http::withHeaders([
+               'Authorization' => 'Bearer ' . $token,
+               'X-CSRF-Token' => $csrfToken,
+           ])->get('http://127.0.0.1:8000/egresados');
+   
+           if ($response4->successful()) {
+               $egresados = $response4->json();
+           } else {
+               $egresados = [];
+           }
+   
+           $response5 = Http::withHeaders([
+               'Authorization' => 'Bearer ' . $token,
+               'X-CSRF-Token' => $csrfToken,
+           ])->get('http://127.0.0.1:8000/egresadostotales');
+   
+           if ($response5->successful()) {
+               $egresadostotales = $response5->json();
+           } else {
+               $egresadostotales = [];
+           }
+   
+           $egresados_totales = tb_egresados_totales::all();
+   
+           return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
+               'egresados' => $egresados,
+               'totales' => $egresadostotales,
+           ]);
+       } catch (Exception $e) {
+           return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
+               'error' => $e->getMessage(),
+           ]);
+       }
    }
 
-   public function titulados(){
-
-      
-      // traer de la tabla tb_indicador_titulados todos los registros
-      $response= Http::get('http://127.0.0.1:8000/titulados');
-      if($response->successful()){
-         $titulados=$response->json();
-      } else {
-         $titulados=[];
-      }
-
-
-      // retornar con Inertia a menusComponentes/TabMenu y pasarle los registros
-      return Inertia::render('menusComponentes/Titulo/TabMenuTitu', ['titulados' => $titulados]);
+   public function titulados()
+   {
+       try {
+           // Obtener el token de autenticación
+           $token = $this->getAuthToken();
+   
+           // Generar el token CSRF
+           $csrfToken = $this->generarTokenCSRF();
+   
+           // Realizar solicitudes a los endpoints protegidos
+           $response = Http::withHeaders([
+               'Authorization' => 'Bearer ' . $token,
+               'X-CSRF-Token' => $csrfToken,
+           ])->get('http://127.0.0.1:8000/titulados');
+   
+           if ($response->successful()) {
+               $titulados = $response->json();
+           } else {
+               $titulados = [];
+           }
+   
+           return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
+               'titulados' => $titulados,
+           ]);
+       } catch (Exception $e) {
+           return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
+               'error' => $e->getMessage(),
+           ]);
+       }
    }
 
    public function becas(){
       return Inertia::render('menusComponentes/Becas');
    }
 
-   public function transporte(){
+   public function transporte()
+{
+    try {
+        // Obtener el token de autenticación
+        $token = $this->getAuthToken();
 
-      $response= Http::get('http://127.0.0.1:8000/transporte_solicitudes');
-      if($response->successful()){
-         $solicitudes=$response->json();
-      } else {
-         $solicitudes=[];
-      }
+        // Generar el token CSRF
+        $csrfToken = $this->generarTokenCSRF();
 
-      
-      $response2= Http::get('http://127.0.0.1:8000/rutas');
-      if($response2->successful()){
-         $rutas=$response2->json();
-      } else {
-         $rutas=[];
-      }
+        // Realizar solicitudes a los endpoints protegidos
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'X-CSRF-Token' => $csrfToken,
+        ])->get('http://127.0.0.1:8000/transporte_solicitudes');
 
-      return Inertia::render('menusComponentes/Transporte/TabMenu',['solicitudes'=> $solicitudes,'rutas'=>$rutas]);
-   }
+        if ($response->successful()) {
+            $solicitudes = $response->json();
+        } else {
+            $solicitudes = [];
+        }
+
+        $response2 = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'X-CSRF-Token' => $csrfToken,
+        ])->get('http://127.0.0.1:8000/rutas');
+
+        if ($response2->successful()) {
+            $rutas = $response2->json();
+        } else {
+            $rutas = [];
+        }
+
+        return Inertia::render('menusComponentes/Transporte/TabMenu', [
+            'solicitudes' => $solicitudes,
+            'rutas' => $rutas,
+        ]);
+    } catch (Exception $e) {
+        return Inertia::render('menusComponentes/Transporte/TabMenu', [
+            'error' => $e->getMessage(),
+        ]);
+    }
+}
 
    public function cambioDeCarrera(){
       return Inertia::render('menusComponentes/CambioDeCarrera');
