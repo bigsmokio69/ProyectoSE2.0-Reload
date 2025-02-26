@@ -21,6 +21,8 @@ use App\Http\Controllers\Ingreso\admisionGraficasController;
 |
 */
 
+Route::get('/test-redis', [main::class, 'testRedis']);
+
 Route::get('/', function () {
     return Inertia::render('Auth/Login', [
         'canResetPassword' => Route::has('password.request'),

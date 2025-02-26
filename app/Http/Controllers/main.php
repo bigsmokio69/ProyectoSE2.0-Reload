@@ -17,6 +17,8 @@ use App\Models\tb_transporte_solicitudes_seleccionados;
 use App\Models\tb_egresados;
 use App\Models\tb_egresados_totales;
 use Illuminate\Support\Facades\Http;
+use GuzzleHttp\Client;
+use Exception;
 
 class main extends Controller
 {
@@ -32,19 +34,48 @@ class main extends Controller
    } else {
       // Imprimir el error para depuración
       \Log::error('Error al obtener el token: ' . $response->body());
-      throw new \Exception("Error al obtener el token de autenticación: " . $response->body());
+      throw new Exception("Error al obtener el token de autenticación: " . $response->body());
    }
 }
 
+private function generarTokenCSRF()
+{
+    // Crear una instancia de GuzzleHttp Client
+    $client = new Client();
+    try {
+        // Hacer la solicitud GET al endpoint de FastAPI que genera el token CSRF
+        $response = $client->get('http://127.0.0.1:8000/get-csrf-token');
+
+        // Decodificar la respuesta JSON
+        $data = json_decode($response->getBody(), true);
+
+        // Retornar el valor del token CSRF
+        return $data['csrf_token'];
+    } catch (Exception $e) {
+        // Manejar errores (por ejemplo, si la API no está disponible)
+        throw new Exception("Error al generar el token CSRF: " . $e->getMessage());
+    }
+}
+
+   public function testRedis()
+   {
+
+      $csrfToken = $this->generarTokenCSRF();
+      \Log::info("Token generado: " . $csrfToken);
+   }
    public function ingreso()
    {
       try {
          // Obtener el token de autenticación
          $token = $this->getAuthToken();
 
+         // Generar el token CSRF
+         $csrfToken = $this->generarTokenCSRF();
+
          // Realizar solicitudes a los endpoints protegidos
          $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $token,
+            'X-CSRF-Token' => $csrfToken,
          ])->get('http://127.0.0.1:8000/ingresos');
 
          if ($response->successful()) {
@@ -94,7 +125,7 @@ class main extends Controller
             'ningresos' => $ningresos,
             'reingresos' => $reingresos,
          ]);
-      } catch (\Exception $e) {
+      } catch (Exception $e) {
          // Manejar errores (por ejemplo, mostrar un mensaje de error)
          return Inertia::render('menusComponentes/Ingreso/TabMenu', [
             'error' => $e->getMessage(),
