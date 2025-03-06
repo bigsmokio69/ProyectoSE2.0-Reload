@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Http\Client\Pool;
 use Inertia\Inertia;
 use App\Models\tb_admision;
 use App\Models\tb_maestria;
@@ -24,7 +25,7 @@ class main extends Controller
 {
    private function getAuthToken()
 {
-   $response = Http::asForm()->post('http://127.0.0.1:8000/token', [
+   $response = Http::asForm()->post('https://siiapi.upq.edu.mx:8000/token', [
       'username' => 'admin', // Cambia esto por el usuario correcto
       'password' => 'adminpassword', // Cambia esto por la contraseña correcta
    ]);
@@ -44,7 +45,7 @@ private function generarTokenCSRF()
     $client = new Client();
     try {
         // Hacer la solicitud GET al endpoint de FastAPI que genera el token CSRF
-        $response = $client->get('http://127.0.0.1:8000/get-csrf-token');
+        $response = $client->get('https://siiapi.upq.edu.mx:8000/get-csrf-token');
 
         // Decodificar la respuesta JSON
         $data = json_decode($response->getBody(), true);
@@ -65,72 +66,39 @@ private function generarTokenCSRF()
    }
    public function ingreso()
    {
-      try {
-         // Obtener el token de autenticación
-         $token = $this->getAuthToken();
-
-         // Generar el token CSRF
-         $csrfToken = $this->generarTokenCSRF();
-
-         // Realizar solicitudes a los endpoints protegidos
-         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-            'X-CSRF-Token' => $csrfToken,
-         ])->get('http://127.0.0.1:8000/ingresos');
-
-         if ($response->successful()) {
-            $ingresos = $response->json();
-         } else {
-            $ingresos = [];
-         }
-
-         $response2 = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-         ])->get('http://127.0.0.1:8000/equivalencias');
-
-         if ($response2->successful()) {
-            $equivalencias = $response2->json();
-         } else {
-            $equivalencias = [];
-         }
-
-         $response3 = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-         ])->get('http://127.0.0.1:8000/maestrias');
-
-         if ($response3->successful()) {
-            $maestrias = $response3->json();
-         } else {
-            $maestrias = [];
-         }
-
-         $response4 = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $token,
-         ])->get('http://127.0.0.1:8000/nuevosIngresos');
-
-         if ($response4->successful()) {
-            $ningresos = $response4->json();
-         } else {
-            $ningresos = [];
-         }
-
-         // Traer de la tabla tb_admision todos los registros
-         $reingresos = tb_re_ingreso::all();
-
-         // Retornar con Inertia a menusComponentes/TabMenu y pasarle los registros
-         return Inertia::render('menusComponentes/Ingreso/TabMenu', [
-            'maestrias' => $maestrias,
-            'ingresos' => $ingresos,
-            'equivalencias' => $equivalencias,
-            'ningresos' => $ningresos,
-            'reingresos' => $reingresos,
-         ]);
-      } catch (Exception $e) {
-         // Manejar errores (por ejemplo, mostrar un mensaje de error)
-         return Inertia::render('menusComponentes/Ingreso/TabMenu', [
-            'error' => $e->getMessage(),
-         ]);
-      }
+       try {
+           // 1. Concurrent requests para APIs externas
+           $responses = Http::pool(function (Pool $pool) {
+               $pool->get('https://siiapi.upq.edu.mx:8000/ingresos');
+               $pool->get('https://siiapi.upq.edu.mx:8000/equivalencias');
+               $pool->get('https://siiapi.upq.edu.mx:8000/maestrias');
+               $pool->get('https://siiapi.upq.edu.mx:8000/nuevosIngresos');
+           });
+   
+           // 2. Obtener datos locales directamente desde la base de datos
+           $maestrias = $responses[2]->successful() ? $responses[0]->json() : [];        // Reemplazo de API local
+           $ningresos = $responses[3]->successful() ? $responses[0]->json() : [];    // Reemplazo de API local
+   
+           // 3. Procesar respuestas de APIs externas
+           $ingresos = $responses[0]->successful() ? $responses[0]->json() : [];
+           $equivalencias = $responses[1]->successful() ? $responses[1]->json() : [];
+   
+           // 4. Carga de datos adicionales
+           $reingresos = tb_re_ingreso::all();
+   
+           return Inertia::render('menusComponentes/Ingreso/TabMenu', [
+               'maestrias' => $maestrias,
+               'ingresos' => $ingresos,
+               'equivalencias' => $equivalencias,
+               'ningresos' => $ningresos,
+               'reingresos' => $reingresos,
+           ]);
+   
+       } catch (Exception $e) {
+           return Inertia::render('menusComponentes/Ingreso/TabMenu', [
+               'error' => $e->getMessage(),
+           ]);
+       }
    }
 
 
