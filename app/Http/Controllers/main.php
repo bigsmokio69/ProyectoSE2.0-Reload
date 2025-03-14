@@ -24,39 +24,39 @@ use Exception;
 class main extends Controller
 {
    private function getAuthToken()
-{
-   $response = Http::asForm()->post('https://siiapi.upq.edu.mx:8000/token', [
-      'username' => 'admin', // Cambia esto por el usuario correcto
-      'password' => 'adminpassword', // Cambia esto por la contraseña correcta
-   ]);
+   {
+      $response = Http::asForm()->post('https://siiapi.upq.edu.mx:8000/token', [
+         'username' => 'admin', // Cambia esto por el usuario correcto
+         'password' => 'adminpassword', // Cambia esto por la contraseña correcta
+      ]);
 
-   if ($response->successful()) {
-      return $response->json()['access_token'];
-   } else {
-      // Imprimir el error para depuración
-      \Log::error('Error al obtener el token: ' . $response->body());
-      throw new Exception("Error al obtener el token de autenticación: " . $response->body());
+      if ($response->successful()) {
+         return $response->json()['access_token'];
+      } else {
+         // Imprimir el error para depuración
+         \Log::error('Error al obtener el token: ' . $response->body());
+         throw new Exception("Error al obtener el token de autenticación: " . $response->body());
+      }
    }
-}
 
-private function generarTokenCSRF()
-{
-    // Crear una instancia de GuzzleHttp Client
-    $client = new Client();
-    try {
-        // Hacer la solicitud GET al endpoint de FastAPI que genera el token CSRF
-        $response = $client->get('https://siiapi.upq.edu.mx:8000/get-csrf-token');
+   private function generarTokenCSRF()
+   {
+      // Crear una instancia de GuzzleHttp Client
+      $client = new Client();
+      try {
+         // Hacer la solicitud GET al endpoint de FastAPI que genera el token CSRF
+         $response = $client->get('https://siiapi.upq.edu.mx:8000/get-csrf-token');
 
-        // Decodificar la respuesta JSON
-        $data = json_decode($response->getBody(), true);
+         // Decodificar la respuesta JSON
+         $data = json_decode($response->getBody(), true);
 
-        // Retornar el valor del token CSRF
-        return $data['csrf_token'];
-    } catch (Exception $e) {
-        // Manejar errores (por ejemplo, si la API no está disponible)
-        throw new Exception("Error al generar el token CSRF: " . $e->getMessage());
-    }
-}
+         // Retornar el valor del token CSRF
+         return $data['csrf_token'];
+      } catch (Exception $e) {
+         // Manejar errores (por ejemplo, si la API no está disponible)
+         throw new Exception("Error al generar el token CSRF: " . $e->getMessage());
+      }
+   }
 
    public function testRedis()
    {
@@ -66,203 +66,241 @@ private function generarTokenCSRF()
    }
    public function ingreso()
    {
-       try {
-           // 1. Concurrent requests para APIs externas
-           $responses = Http::pool(function (Pool $pool) {
-               $pool->get('https://siiapi.upq.edu.mx:8000/ingresos');
-               $pool->get('https://siiapi.upq.edu.mx:8000/equivalencias');
-               $pool->get('https://siiapi.upq.edu.mx:8000/maestrias');
-               $pool->get('https://siiapi.upq.edu.mx:8000/nuevosIngresos');
-           });
-   
-           // 2. Obtener datos locales directamente desde la base de datos
-           $maestrias = $responses[2]->successful() ? $responses[0]->json() : [];        // Reemplazo de API local
-           $ningresos = $responses[3]->successful() ? $responses[0]->json() : [];    // Reemplazo de API local
-   
-           // 3. Procesar respuestas de APIs externas
-           $ingresos = $responses[0]->successful() ? $responses[0]->json() : [];
-           $equivalencias = $responses[1]->successful() ? $responses[1]->json() : [];
-   
-           // 4. Carga de datos adicionales
-           $reingresos = tb_re_ingreso::all();
-   
-           return Inertia::render('menusComponentes/Ingreso/TabMenu', [
-               'maestrias' => $maestrias,
-               'ingresos' => $ingresos,
-               'equivalencias' => $equivalencias,
-               'ningresos' => $ningresos,
-               'reingresos' => $reingresos,
-           ]);
-   
-       } catch (Exception $e) {
-           return Inertia::render('menusComponentes/Ingreso/TabMenu', [
-               'error' => $e->getMessage(),
-           ]);
-       }
+      try {
+         // 1. Concurrent requests para APIs externas
+         $responses = Http::pool(function (Pool $pool) {
+            $pool->get('https://siiapi.upq.edu.mx:8000/ingresos');
+            $pool->get('https://siiapi.upq.edu.mx:8000/equivalencias');
+            $pool->get('https://siiapi.upq.edu.mx:8000/maestrias');
+            $pool->get('https://siiapi.upq.edu.mx:8000/nuevosIngresos');
+         });
+
+         // 2. Obtener datos locales directamente desde la base de datos
+         $maestrias = $responses[2]->successful() ? $responses[2]->json() : [];        // Reemplazo de API local
+         $ningresos = $responses[3]->successful() ? $responses[3]->json() : [];    // Reemplazo de API local
+
+         // 3. Procesar respuestas de APIs externas
+         $ingresos = $responses[0]->successful() ? $responses[0]->json() : [];
+         $equivalencias = $responses[1]->successful() ? $responses[1]->json() : [];
+         // 4. Carga de datos adicionales
+         $reingresos = tb_re_ingreso::all();
+
+         return Inertia::render('menusComponentes/Ingreso/TabMenu', [
+            'maestrias' => $maestrias,
+            'ingresos' => $ingresos,
+            'equivalencias' => $equivalencias,
+            'ningresos' => $ningresos,
+            'reingresos' => $reingresos,
+         ]);
+
+      } catch (Exception $e) {
+         return Inertia::render('menusComponentes/Ingreso/TabMenu', [
+            'error' => $e->getMessage(),
+         ]);
+      }
    }
 
 
-   public function bajas() {
+   public function bajas()
+   {
       return Inertia::render('menusComponentes/Bajas');
    }
 
-   public function matricula(){
+   public function matricula()
+   {
       return Inertia::render('menusComponentes/Matricula');
    }
 
    public function egresados()
    {
-       try {
-           // Obtener el token de autenticación
-           $token = $this->getAuthToken();
-   
-           // Generar el token CSRF
-           $csrfToken = $this->generarTokenCSRF();
-   
-           // Realizar solicitudes a los endpoints protegidos
-           $response4 = Http::withHeaders([
-               'Authorization' => 'Bearer ' . $token,
-               'X-CSRF-Token' => $csrfToken,
-           ])->get('http://127.0.0.1:8000/egresados');
-   
-           if ($response4->successful()) {
-               $egresados = $response4->json();
-           } else {
-               $egresados = [];
-           }
-   
-           $response5 = Http::withHeaders([
-               'Authorization' => 'Bearer ' . $token,
-               'X-CSRF-Token' => $csrfToken,
-           ])->get('http://127.0.0.1:8000/egresadostotales');
-   
-           if ($response5->successful()) {
-               $egresadostotales = $response5->json();
-           } else {
-               $egresadostotales = [];
-           }
-   
-           $egresados_totales = tb_egresados_totales::all();
-   
-           return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
-               'egresados' => $egresados,
-               'totales' => $egresadostotales,
-           ]);
-       } catch (Exception $e) {
-           return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
-               'error' => $e->getMessage(),
-           ]);
-       }
+      try {
+         // 1. Concurrent requests para APIs externas
+         $responses = Http::pool(function (Pool $pool) {
+            //Peticiones de la pestaña de egresados
+            $pool->get('https://siiapi.upq.edu.mx:8000/egresados');
+            $pool->get('https://siiapi.upq.edu.mx:8000/egresadostotales');
+         });
+
+         //Respuestas de la pestaña de egresados
+         $egresados = $responses[0]->successful() ? $responses[0]->json() : [];
+         $egresadostotales = $responses[1]->successful() ? $responses[1]->json() : [];
+
+         $egresados_totales = tb_egresados_totales::all();
+
+         return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
+            'egresados' => $egresados,
+            'totales' => $egresadostotales,
+         ]);
+      }
+      catch (Exception $e) {
+         return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
+            'error' => $e->getMessage(),
+         ]);
+      }
    }
+
+   /* public function titulados()
+   Comeno esta vieja funcion de titulados no se porque, supongo que por si acaso
+   {
+      try {
+         // Obtener el token de autenticación
+         $token = $this->getAuthToken();
+
+         // Generar el token CSRF
+         $csrfToken = $this->generarTokenCSRF();
+
+         // Realizar solicitudes a los endpoints protegidos
+         $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'X-CSRF-Token' => $csrfToken,
+         ])->get('http://127.0.0.1:8000/titulados');
+
+         if ($response->successful()) {
+            $titulados = $response->json();
+         } else {
+            $titulados = [];
+         }
+
+         return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
+            'titulados' => $titulados,
+         ]);
+      } catch (Exception $e) {
+         return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
+            'error' => $e->getMessage(),
+         ]);
+      }
+   } */
 
    public function titulados()
    {
-       try {
-           // Obtener el token de autenticación
-           $token = $this->getAuthToken();
-   
-           // Generar el token CSRF
-           $csrfToken = $this->generarTokenCSRF();
-   
-           // Realizar solicitudes a los endpoints protegidos
-           $response = Http::withHeaders([
-               'Authorization' => 'Bearer ' . $token,
-               'X-CSRF-Token' => $csrfToken,
-           ])->get('http://127.0.0.1:8000/titulados');
-   
-           if ($response->successful()) {
-               $titulados = $response->json();
-           } else {
-               $titulados = [];
-           }
-   
-           return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
-               'titulados' => $titulados,
-           ]);
-       } catch (Exception $e) {
-           return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
-               'error' => $e->getMessage(),
-           ]);
-       }
+      try {
+         // 1. Concurrent requests para APIs externas
+         $responses = Http::pool(function (Pool $pool) {
+            //Peticiones de la pestaña de egresados
+            $pool->get('https://siiapi.upq.edu.mx:8000/titulados');
+         });
+
+         //Respuestas de la pestaña de egresados
+         $titulados = $responses[0]->successful() ? $responses[0]->json() : [];
+
+         return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
+            'titulados' => $titulados,
+         ]);
+      } catch (Exception $e) {
+         return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
+            'error' => $e->getMessage(),
+         ]);
+      }
    }
 
-   public function becas(){
+   public function becas()
+   {
       return Inertia::render('menusComponentes/Becas');
    }
 
-   public function transporte()
-{
-    try {
-        // Obtener el token de autenticación
-        $token = $this->getAuthToken();
+   /* public function transporte()
+   Comento esta funcion por si acaso. Igual que la anterior.
+   {
+      try {
+         // Obtener el token de autenticación
+         $token = $this->getAuthToken();
 
-        // Generar el token CSRF
-        $csrfToken = $this->generarTokenCSRF();
+         // Generar el token CSRF
+         $csrfToken = $this->generarTokenCSRF();
 
-        // Realizar solicitudes a los endpoints protegidos
-        $response = Http::withHeaders([
+         // Realizar solicitudes a los endpoints protegidos
+         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . $token,
             'X-CSRF-Token' => $csrfToken,
-        ])->get('http://127.0.0.1:8000/transporte_solicitudes');
+         ])->get('http://127.0.0.1:8000/transporte_solicitudes');
 
-        if ($response->successful()) {
+         if ($response->successful()) {
             $solicitudes = $response->json();
-        } else {
+         } else {
             $solicitudes = [];
-        }
+         }
 
-        $response2 = Http::withHeaders([
+         $response2 = Http::withHeaders([
             'Authorization' => 'Bearer ' . $token,
             'X-CSRF-Token' => $csrfToken,
-        ])->get('http://127.0.0.1:8000/rutas');
+         ])->get('http://127.0.0.1:8000/rutas');
 
-        if ($response2->successful()) {
+         if ($response2->successful()) {
             $rutas = $response2->json();
-        } else {
+         } else {
             $rutas = [];
-        }
+         }
 
-        return Inertia::render('menusComponentes/Transporte/TabMenu', [
+         return Inertia::render('menusComponentes/Transporte/TabMenu', [
             'solicitudes' => $solicitudes,
             'rutas' => $rutas,
-        ]);
-    } catch (Exception $e) {
-        return Inertia::render('menusComponentes/Transporte/TabMenu', [
+         ]);
+      } catch (Exception $e) {
+         return Inertia::render('menusComponentes/Transporte/TabMenu', [
             'error' => $e->getMessage(),
-        ]);
-    }
-}
+         ]);
+      }
+   } */
 
-   public function cambioDeCarrera(){
+   public function transporte()
+   {
+      try {
+         $responses = Http::pool(function (Pool $pool) {
+            //Peticiones de la pestaña de egresados
+            $pool->get('https://siiapi.upq.edu.mx:8000/transporte_solicitudes');
+            $pool->get('https://siiapi.upq.edu.mx:8000/rutas');
+         });
+
+         //Respuestas de la pestaña de egresados
+         $solicitudes = $responses[0]->successful() ? $responses[0]->json() : [];
+         $rutas = $responses[1]->successful() ? $responses[1]->json() : [];
+
+
+         return Inertia::render('menusComponentes/Transporte/TabMenu', [
+            'solicitudes' => $solicitudes,
+            'rutas' => $rutas,
+         ]);
+      } catch (Exception $e) {
+         return Inertia::render('menusComponentes/Transporte/TabMenu', [
+            'error' => $e->getMessage(),
+         ]);
+      }
+   }
+
+   public function cambioDeCarrera()
+   {
       return Inertia::render('menusComponentes/CambioDeCarrera');
    }
 
-   public function equivalencia(){
+   public function equivalencia()
+   {
       // traer de la tabla tb_admision todos los registros
       $equiva = tb_indicador_equivalencia::all();
       return Inertia::render('menusComponentes/Equivalencia/TabMenuEqui', ['equiva' => $equiva]);
    }
 
-   public function importarDataExcelAdmisiones(Request $request) {
-    $datosExcel = $request->input('datos');
+   public function importarDataExcelAdmisiones(Request $request)
+   {
+      $datosExcel = $request->input('datos');
 
-    foreach ($datosExcel as $fila) {
-      $admision = new tb_admision();
-      $admision->carrera = $fila['carrera'];
-      $admision->aspirantes = $fila['aspirantes'];
-      $admision->examinados = $fila['examinados'];
-      $admision->no_admitidos = $fila['no_admitidos'];
-      $admision->periodo = $fila['periodo'];
-      $admision->save();
-    }
+      foreach ($datosExcel as $fila) {
+         $admision = new tb_admision();
+         $admision->carrera = $fila['carrera'];
+         $admision->aspirantes = $fila['aspirantes'];
+         $admision->examinados = $fila['examinados'];
+         $admision->no_admitidos = $fila['no_admitidos'];
+         $admision->periodo = $fila['periodo'];
+         $admision->save();
+      }
 
       return redirect()->route('usuario.ingreso');
-}
+   }
 
 
 
    // ruta para guardar una nueva admision del indicador ingreso en la admision
-   function registrarAdmision(Request $request) {
+   function registrarAdmision(Request $request)
+   {
       $carrera = $request->input('carreras');
       $aspirantes = $request->input('aspirantes');
       $examinados = $request->input('examinados');
@@ -280,10 +318,10 @@ private function generarTokenCSRF()
 
       // retornar a la vista ingreso
       return redirect()->route('usuario.ingreso');
-   
-  }
 
-   
+   }
+
+
 
 
 
@@ -291,49 +329,53 @@ private function generarTokenCSRF()
 
    //  --------------------- TAB ADMISION -----------------------
 
-  // ruta para editar una admision
-  function editarAdmision(Request $request) {
-   // obtener los datos dle form y luego actualizar el registro
-   $id = $request->input('id');
-   $carrera = $request->input('carrera');
-   $aspirantes = $request->input('aspirantes');
-   $examinados = $request->input('examinados');
-   $no_admitidos = $request->input('no_admitidos');
-   $periodo = $request->input('periodo');
+   // ruta para editar una admision
+   function editarAdmision(Request $request)
+   {
+      // obtener los datos dle form y luego actualizar el registro
+      $id = $request->input('id');
+      $carrera = $request->input('carrera');
+      $aspirantes = $request->input('aspirantes');
+      $examinados = $request->input('examinados');
+      $no_admitidos = $request->input('no_admitidos');
+      $periodo = $request->input('periodo');
 
-   // actualizar el registro
-   $admision = tb_admision::find($id);
-   $admision->carrera = $carrera;
-   $admision->aspirantes = $aspirantes;
-   $admision->examinados = $examinados;
-   $admision->no_admitidos = $no_admitidos;
-   $admision->periodo = $periodo;
-   $admision->save();
+      // actualizar el registro
+      $admision = tb_admision::find($id);
+      $admision->carrera = $carrera;
+      $admision->aspirantes = $aspirantes;
+      $admision->examinados = $examinados;
+      $admision->no_admitidos = $no_admitidos;
+      $admision->periodo = $periodo;
+      $admision->save();
 
-   // retornar a la vista ingreso
-   return redirect()->route('usuario.ingreso');
-  }
+      // retornar a la vista ingreso
+      return redirect()->route('usuario.ingreso');
+   }
 
-  function eliminarAdmision(Request $request) {
-   $id = $request->input('id');
-   $admision = tb_admision::findOrFail($id);
-   $admision->delete(); 
-   return redirect()->route('usuario.ingreso');
-  }
+   function eliminarAdmision(Request $request)
+   {
+      $id = $request->input('id');
+      $admision = tb_admision::findOrFail($id);
+      $admision->delete();
+      return redirect()->route('usuario.ingreso');
+   }
 
-  function eliminarAdmisiones(Request $request) {
-   $id = $request->id;
-   $admision = tb_admision::whereIn('id', $id);
-   $admision->delete();
-   return redirect()->route('usuario.ingreso');
-  }
+   function eliminarAdmisiones(Request $request)
+   {
+      $id = $request->id;
+      $admision = tb_admision::whereIn('id', $id);
+      $admision->delete();
+      return redirect()->route('usuario.ingreso');
+   }
 
-  //  --------------------- FIN TAB ADMISION -----------------------
+   //  --------------------- FIN TAB ADMISION -----------------------
 
-  // ---------------------- TAB TITULADOS --------------------------
+   // ---------------------- TAB TITULADOS --------------------------
 
-   function registrarTitulacion(Request $request) {
-      
+   function registrarTitulacion(Request $request)
+   {
+
       $generacion = $request->input('generacion');
       $carrera = $request->input('carrera');
       $total = $request->input('total');
@@ -356,8 +398,9 @@ private function generarTokenCSRF()
 
    }
 
-    // ruta para editar una admision
-    function editarTitulacion(Request $request) {
+   // ruta para editar una admision
+   function editarTitulacion(Request $request)
+   {
       // obtener los datos dle form y luego actualizar el registro
       $id = $request->input('id');
       $carrera = $request->input('carrera');
@@ -366,7 +409,7 @@ private function generarTokenCSRF()
       $cedula = $request->input('cedula');
       $cuatrimestre_egreso = $request->input('cuatrimestre_egreso');
       $fecha_titulacion = $request->input('fecha_titulacion');
-   
+
       // actualizar el registro
       $titulacion = tb_indicador_titulados::find($id);
       $titulacion->carrera = $carrera;
@@ -376,71 +419,77 @@ private function generarTokenCSRF()
       $titulacion->cuatrimestre_egreso = $cuatrimestre_egreso;
       $titulacion->fecha_titulacion = $fecha_titulacion;
       $titulacion->save();
-   
+
       // retornar a la vista ingreso
       return redirect()->route('usuario.titulados');
-     }
-   
-     function eliminarTitulacion(Request $request) {
+   }
+
+   function eliminarTitulacion(Request $request)
+   {
       $id = $request->input('id');
       $titulacion = tb_indicador_titulados::findOrFail($id);
-      $titulacion->delete(); 
+      $titulacion->delete();
       return redirect()->route('usuario.titulados');
-     }
-   
-     function eliminarTitulaciones(Request $request) {
+   }
+
+   function eliminarTitulaciones(Request $request)
+   {
       $id = $request->id;
       $titulacion = tb_indicador_titulados::whereIn('id', $id);
       $titulacion->delete();
       return redirect()->route('usuario.titulados');
-     }
+   }
 
-  // ---------------------- FIN TAB TITULADOS ----------------------
+   // ---------------------- FIN TAB TITULADOS ----------------------
 
-  //  --------------------- TAB NUEVO INGRESO -----------------------
+   //  --------------------- TAB NUEVO INGRESO -----------------------
 
-  function registrarNIngreso(Request $request) {
-   $carrera = $request->input('carrera');
-   $total_ingresos = $request->input('totalIngresos');
-   $sexo = $request->input('sexo');
-   $generacion = $request->input('generacion');
-   $admitidos = $request->input('admitidos');
-   $inscritos = $request->input('inscritos');
-   $proceso = $request->input('procesos');
-   $periodo = $request->input('periodos');
+   function registrarNIngreso(Request $request)
+   {
+      $carrera = $request->input('carrera');
+      $total_ingresos = $request->input('totalIngresos');
+      $sexo = $request->input('sexo');
+      $generacion = $request->input('generacion');
+      $admitidos = $request->input('admitidos');
+      $inscritos = $request->input('inscritos');
+      $proceso = $request->input('procesos');
+      $periodo = $request->input('periodos');
 
-   // crear un nuevo registro en la tabla tb_nuevo_ingreso
-   $nuevo_ingreso = new tb_nuevo_ingreso();
-   $nuevo_ingreso->carrera = $carrera;
-   $nuevo_ingreso->total_ingresos = $total_ingresos;
-   $nuevo_ingreso->sexo = $sexo;
-   $nuevo_ingreso->generacion = $generacion;
-   $nuevo_ingreso->admitidos = $admitidos;
-   $nuevo_ingreso->inscritos = $inscritos;
-   $nuevo_ingreso->proceso = $proceso;
-   $nuevo_ingreso->periodo = $periodo;
-   $nuevo_ingreso->save();
+      // crear un nuevo registro en la tabla tb_nuevo_ingreso
+      $nuevo_ingreso = new tb_nuevo_ingreso();
+      $nuevo_ingreso->carrera = $carrera;
+      $nuevo_ingreso->total_ingresos = $total_ingresos;
+      $nuevo_ingreso->sexo = $sexo;
+      $nuevo_ingreso->generacion = $generacion;
+      $nuevo_ingreso->admitidos = $admitidos;
+      $nuevo_ingreso->inscritos = $inscritos;
+      $nuevo_ingreso->proceso = $proceso;
+      $nuevo_ingreso->periodo = $periodo;
+      $nuevo_ingreso->save();
 
 
-   // retornar a la vista ingres-o
-   return redirect()->route('usuario.ingreso');
-  }
+      // retornar a la vista ingres-o
+      return redirect()->route('usuario.ingreso');
+   }
 
-  function eliminarNIngresos(Request $request) {
-   $id = $request->id;
-   $nuevo_ingreso = tb_nuevo_ingreso::whereIn('id', $id);
-   $nuevo_ingreso->delete();
-   return redirect()->route('usuario.ingreso');
-  }
+   function eliminarNIngresos(Request $request)
+   {
+      $id = $request->id;
+      $nuevo_ingreso = tb_nuevo_ingreso::whereIn('id', $id);
+      $nuevo_ingreso->delete();
+      return redirect()->route('usuario.ingreso');
+   }
 
-  function eliminarNIngreso(Request $request) {
-   $id = $request->input('id');
-   $nuevo_ingreso = tb_nuevo_ingreso::findOrFail($id);
-   $nuevo_ingreso->delete(); 
-   return redirect()->route('usuario.ingreso');
-  }
+   function eliminarNIngreso(Request $request)
+   {
+      $id = $request->input('id');
+      $nuevo_ingreso = tb_nuevo_ingreso::findOrFail($id);
+      $nuevo_ingreso->delete();
+      return redirect()->route('usuario.ingreso');
+   }
 
-  function editarNIngreso(Request $request) {
+   function editarNIngreso(Request $request)
+   {
       // recibir los datos del form
       $id = $request->input('id');
       $carrera = $request->input('carrera');
@@ -466,11 +515,12 @@ private function generarTokenCSRF()
 
       // retornar a la vista ingreso
       return redirect()->route('usuario.ingreso');
-  }
+   }
 
    //  --------------------- TAB NUEVO RE INGRESO -----------------------
 
-   function registrarRIngreso(Request $request) {
+   function registrarRIngreso(Request $request)
+   {
       $carrera = $request->input('carrera');
       $cuatrimestre = $request->input('cuatrimestre');
       $generacion = $request->input('generacion');
@@ -491,7 +541,8 @@ private function generarTokenCSRF()
 
    }
 
-   function editarRIngresos(Request $request) {
+   function editarRIngresos(Request $request)
+   {
       // recibir los datos del form
       $id = $request->input('id');
       $carrera = $request->input('carrera');
@@ -513,85 +564,92 @@ private function generarTokenCSRF()
       return redirect()->route('usuario.ingreso');
    }
 
-   function eliminarRIngreso(Request $request) {
+   function eliminarRIngreso(Request $request)
+   {
       $id = $request->input('id');
       $re_ingreso = tb_re_ingreso::findOrFail($id);
-      $re_ingreso->delete(); 
+      $re_ingreso->delete();
       return redirect()->route('usuario.ingreso');
    }
 
-   function eliminarRIngresos(Request $request) {
+   function eliminarRIngresos(Request $request)
+   {
       $id = $request->id;
       $re_ingreso = tb_re_ingreso::whereIn('id', $id);
       $re_ingreso->delete();
       return redirect()->route('usuario.ingreso');
    }
 
-   
+
    //  --------------------- TAB NUEVO EQUIVALENCIA -----------------------
    // ruta para guardar una nueva equivalencia del indicador ingreso en la equivalencia
-  function registrarEquivalencia(Request $request) {
-   $carrera = $request->input('carreras');
-   $aspirantes = $request->input('aspirantes');
-   $examinados = $request->input('examinados');
-   $no_admitidos = $request->input('noAdmitidos');
-   $periodo = $request->input('periodos');
+   function registrarEquivalencia(Request $request)
+   {
+      $carrera = $request->input('carreras');
+      $aspirantes = $request->input('aspirantes');
+      $examinados = $request->input('examinados');
+      $no_admitidos = $request->input('noAdmitidos');
+      $periodo = $request->input('periodos');
 
-   // crear un nuevo registro en la tabla tb_equivalencia
-   $admision = new tb_equivalencia();
-   $admision->carrera = $carrera;
-   $admision->aspirantes = $aspirantes;
-   $admision->examinados = $examinados;
-   $admision->no_admitidos = $no_admitidos;
-   $admision->periodo = $periodo;
-   $admision->save();
+      // crear un nuevo registro en la tabla tb_equivalencia
+      $admision = new tb_equivalencia();
+      $admision->carrera = $carrera;
+      $admision->aspirantes = $aspirantes;
+      $admision->examinados = $examinados;
+      $admision->no_admitidos = $no_admitidos;
+      $admision->periodo = $periodo;
+      $admision->save();
 
-   // retornar a la vista ingreso
-   return redirect()->route('usuario.ingreso');
+      // retornar a la vista ingreso
+      return redirect()->route('usuario.ingreso');
 
-} 
+   }
 
-// ruta para editar una equivalencia
-function editarEquivalencia(Request $request) {
-   // obtener los datos dle form y luego actualizar el registro
-   $id = $request->input('id');
-   $carrera = $request->input('carrera');
-   $aspirantes = $request->input('aspirantes');
-   $examinados = $request->input('examinados');
-   $no_admitidos = $request->input('no_admitidos');
-   $periodo = $request->input('periodo');
+   // ruta para editar una equivalencia
+   function editarEquivalencia(Request $request)
+   {
+      // obtener los datos dle form y luego actualizar el registro
+      $id = $request->input('id');
+      $carrera = $request->input('carrera');
+      $aspirantes = $request->input('aspirantes');
+      $examinados = $request->input('examinados');
+      $no_admitidos = $request->input('no_admitidos');
+      $periodo = $request->input('periodo');
 
-   // actualizar el registro
-   $admision = tb_equivalencia::find($id);
-   $admision->carrera = $carrera;
-   $admision->aspirantes = $aspirantes;
-   $admision->examinados = $examinados;
-   $admision->no_admitidos = $no_admitidos;
-   $admision->periodo = $periodo;
-   $admision->save();
+      // actualizar el registro
+      $admision = tb_equivalencia::find($id);
+      $admision->carrera = $carrera;
+      $admision->aspirantes = $aspirantes;
+      $admision->examinados = $examinados;
+      $admision->no_admitidos = $no_admitidos;
+      $admision->periodo = $periodo;
+      $admision->save();
 
-   // retornar a la vista ingreso
-   return redirect()->route('usuario.ingreso');
-  }
+      // retornar a la vista ingreso
+      return redirect()->route('usuario.ingreso');
+   }
 
-  function eliminarEquivalencia(Request $request) {
-   $id = $request->input('id');
-   $equivalencia = tb_equivalencia::findOrFail($id);
-   $equivalencia->delete(); 
-   return redirect()->route('usuario.ingreso');
-}
+   function eliminarEquivalencia(Request $request)
+   {
+      $id = $request->input('id');
+      $equivalencia = tb_equivalencia::findOrFail($id);
+      $equivalencia->delete();
+      return redirect()->route('usuario.ingreso');
+   }
 
-function eliminarEquivalencias(Request $request) {
-   $id = $request->id;
-   $equivalencia = tb_equivalencia::whereIn('id', $id);
-   $equivalencia->delete();
-   return redirect()->route('usuario.ingreso');
-}
+   function eliminarEquivalencias(Request $request)
+   {
+      $id = $request->id;
+      $equivalencia = tb_equivalencia::whereIn('id', $id);
+      $equivalencia->delete();
+      return redirect()->route('usuario.ingreso');
+   }
 
-//  --------------------- TAB NUEVO MAESTRIAS -----------------------
+   //  --------------------- TAB NUEVO MAESTRIAS -----------------------
    // ruta para guardar una nueva MAESTRIA del indicador ingreso en la maestria
 
-   function registrarMaestria(Request $request) {
+   function registrarMaestria(Request $request)
+   {
       $carrera = $request->input('carreras');
       $aspirantes = $request->input('aspirantes');
       $examinados = $request->input('examinados');
@@ -613,7 +671,8 @@ function eliminarEquivalencias(Request $request) {
    }
 
    // ruta para editar una maestria
-   function editarMaestria(Request $request) {
+   function editarMaestria(Request $request)
+   {
       // obtener los datos dle form y luego actualizar el registro
       $id = $request->input('id');
       $carrera = $request->input('carrera');
@@ -635,25 +694,28 @@ function eliminarEquivalencias(Request $request) {
       return redirect()->route('usuario.ingreso');
    }
 
-   function eliminarMaestria(Request $request) {
+   function eliminarMaestria(Request $request)
+   {
       $id = $request->input('id');
       $maestria = tb_maestria::findOrFail($id);
-      $maestria->delete(); 
+      $maestria->delete();
       return redirect()->route('usuario.ingreso');
    }
 
-   function eliminarMaestrias(Request $request) {
+   function eliminarMaestrias(Request $request)
+   {
       $id = $request->id;
       $maestria = tb_maestria::whereIn('id', $id);
       $maestria->delete();
       return redirect()->route('usuario.ingreso');
    }
 
-//  --------------------- Fin Maestrias -----------------------//
+   //  --------------------- Fin Maestrias -----------------------//
 
-//---------------TRANSPORTE----------------//
+   //---------------TRANSPORTE----------------//
 
-   function registrarTranspSolicitudes(Request $request) {
+   function registrarTranspSolicitudes(Request $request)
+   {
       $carrera = $request->input('carrera');
       $ruta = $request->input('ruta');
       $solicitudes = $request->input('solicitudes');
@@ -662,8 +724,8 @@ function eliminarEquivalencias(Request $request) {
       $seleccionados = $hombres + $mujeres;
       $cuatrimestre = $request->input('cuatrimestre');
       $turno = $request->input('turno');
-      
-   
+
+
       // crear un nuevo registro en la tabla tb_transporte_solicit...
       $transpSolicit = new tb_transporte_solicitudes_seleccionados();
       $transpSolicit->solicitudes = $solicitudes;
@@ -676,40 +738,44 @@ function eliminarEquivalencias(Request $request) {
       $transpSolicit->turno = $turno;
       $transpSolicit->save();
 
-   
-   
+
+
       // retornar a la vista ingres-o
       return redirect()->route('usuario.transporte');
-     }
-     function eliminarTranspSolicitudes(Request $request) {
+   }
+   function eliminarTranspSolicitudes(Request $request)
+   {
       $id = $request->id;
       $nuevo_ingreso = tb_transporte_solicitudes_seleccionados::whereIn('id', $id);
       $nuevo_ingreso->delete();
       return redirect()->route('usuario.transporte');
-     }
+   }
 
-     function eliminarTranspSolicitud(Request $request) {
+   function eliminarTranspSolicitud(Request $request)
+   {
       $id = $request->input('id');
       $nuevo_ingreso = tb_transporte_solicitudes_seleccionados::findOrFail($id);
-      $nuevo_ingreso->delete(); 
+      $nuevo_ingreso->delete();
       return redirect()->route('usuario.transporte');
-     }
+   }
 
-     function eliminarTranspRuta(Request $request) {
+   function eliminarTranspRuta(Request $request)
+   {
       $id = $request->input('id');
       $nuevo_ingreso = tb_transporte_lugares::findOrFail($id);
-      $nuevo_ingreso->delete(); 
+      $nuevo_ingreso->delete();
       return redirect()->route('usuario.transporte');
-     }
+   }
 
-     function registrarTranspRutas(Request $request) {
+   function registrarTranspRutas(Request $request)
+   {
       $ruta = $request->input('ruta');
       $lugares = $request->input('lugares_disp');
       $pagados = $request->input('pagados');
       $cuatrimestre = $request->input('cuatrimestre');
       $turno = $request->input('turno');
-      
-   
+
+
       // crear un nuevo registro en la tabla tb_transporte_solicit...
       $transpRutas = new tb_transporte_lugares();
       $transpRutas->ruta = $ruta;
@@ -719,19 +785,21 @@ function eliminarEquivalencias(Request $request) {
       $transpRutas->pagados = $pagados;
       $transpRutas->save();
 
-   
-   
+
+
       // retornar a la vista ingres-o
       return redirect()->route('usuario.transporte');
-     }
-     function eliminarTranspRutas(Request $request) {
+   }
+   function eliminarTranspRutas(Request $request)
+   {
       $id = $request->id;
       $nuevo_ingreso = tb_transporte_lugares::whereIn('id', $id);
       $nuevo_ingreso->delete();
       return redirect()->route('usuario.transporte');
-     }
+   }
 
-     function editarTranspSolicitudes(Request $request) {
+   function editarTranspSolicitudes(Request $request)
+   {
       // recibir los datos del form
       $id = $request->input('id');
       $carrera = $request->input('carrera');
@@ -757,19 +825,20 @@ function eliminarEquivalencias(Request $request) {
 
       // retornar a la vista ingreso
       return redirect()->route('usuario.transporte');
-  }
-  function editarTranspRutas(Request $request) {
-   // recibir los datos del form
-   $id = $request->input('id');
-   $ruta = $request->input('ruta');
-   $lugares = $request->input('lugares_disp');
-   $pagados = $request->input('pagados');
-   $cuatrimestre = $request->input('cuatrimestre');
-   $turno = $request->input('turno');
+   }
+   function editarTranspRutas(Request $request)
+   {
+      // recibir los datos del form
+      $id = $request->input('id');
+      $ruta = $request->input('ruta');
+      $lugares = $request->input('lugares_disp');
+      $pagados = $request->input('pagados');
+      $cuatrimestre = $request->input('cuatrimestre');
+      $turno = $request->input('turno');
 
-   // actualizar el registro
-   
-   $transpRutas = tb_transporte_lugares::find($id);
+      // actualizar el registro
+
+      $transpRutas = tb_transporte_lugares::find($id);
       $transpRutas->ruta = $ruta;
       $transpRutas->cuatrimestre = $cuatrimestre;
       $transpRutas->turno = $turno;
@@ -777,13 +846,14 @@ function eliminarEquivalencias(Request $request) {
       $transpRutas->pagados = $pagados;
       $transpRutas->save();
 
-   // retornar a la vista ingreso
-   return redirect()->route('usuario.transporte');
+      // retornar a la vista ingreso
+      return redirect()->route('usuario.transporte');
 
-//-------------------------FIN TRANSPORTE-----------------------------
+      //-------------------------FIN TRANSPORTE-----------------------------
 
    }
-   function eliminarEquivalencias2(Request $request) {
+   function eliminarEquivalencias2(Request $request)
+   {
       $id = $request->id;
       $equiva = tb_indicador_equivalencia::whereIn('id', $id);
       $equiva->delete();
@@ -791,47 +861,51 @@ function eliminarEquivalencias(Request $request) {
    }
 
 
-// ------------------------------ INICIO EGRESADOS ----------------------------
+   // ------------------------------ INICIO EGRESADOS ----------------------------
 
-      // ruta para guardar un nuevo egreso del indicador egresados
-      function registrarEgresados(Request $request) {
-         $carrera = $request->input('carrera');
-         $generacion = $request->input('generacion');
-         $año_egreso = $request->input('año_egreso');
-         $cuatrimestre = $request->input('cuatrimestre');
-         $hombres = $request->input('hombres');
-         $mujeres = $request->input('mujeres');
-         $egresados = $hombres + $mujeres;
-         // crear un nuevo registro en la tabla egresados
-         $egresado = new tb_egresados();
-         $egresado->carrera = $carrera;
-         $egresado->generacion = $generacion;
-         $egresado->egresados = $egresados;
-         $egresado->año_egreso = $año_egreso;
-         $egresado->cuatrimestre= $cuatrimestre;
-         $egresado->hombres= $hombres;
-         $egresado->mujeres= $mujeres;
-         $egresado->save();
+   // ruta para guardar un nuevo egreso del indicador egresados
+   function registrarEgresados(Request $request)
+   {
+      $carrera = $request->input('carrera');
+      $generacion = $request->input('generacion');
+      $año_egreso = $request->input('año_egreso');
+      $cuatrimestre = $request->input('cuatrimestre');
+      $hombres = $request->input('hombres');
+      $mujeres = $request->input('mujeres');
+      $egresados = $hombres + $mujeres;
+      // crear un nuevo registro en la tabla egresados
+      $egresado = new tb_egresados();
+      $egresado->carrera = $carrera;
+      $egresado->generacion = $generacion;
+      $egresado->egresados = $egresados;
+      $egresado->año_egreso = $año_egreso;
+      $egresado->cuatrimestre = $cuatrimestre;
+      $egresado->hombres = $hombres;
+      $egresado->mujeres = $mujeres;
+      $egresado->save();
 
-         // retornar a la vista ingreso
-         return redirect()->route('usuario.egresados');
-      }
-
-      function eliminarEgresados(Request $request) {
-         $id = $request->id;
-         $egresado = tb_egresados::whereIn('id', $id);
-         $egresado->delete();
-         return redirect()->route('usuario.egresados');
-      }
-
-      function eliminarEgreso(Request $request) {
-         $id = $request->input('id');
-      $egresado = tb_egresados::findOrFail($id);
-      $egresado->delete(); 
+      // retornar a la vista ingreso
       return redirect()->route('usuario.egresados');
-      }
+   }
 
-      function editarEgreso(Request $request){
+   function eliminarEgresados(Request $request)
+   {
+      $id = $request->id;
+      $egresado = tb_egresados::whereIn('id', $id);
+      $egresado->delete();
+      return redirect()->route('usuario.egresados');
+   }
+
+   function eliminarEgreso(Request $request)
+   {
+      $id = $request->input('id');
+      $egresado = tb_egresados::findOrFail($id);
+      $egresado->delete();
+      return redirect()->route('usuario.egresados');
+   }
+
+   function editarEgreso(Request $request)
+   {
       $id = $request->input('id');
       $carrera = $request->input('carrera');
       $generacion = $request->input('generacion');
@@ -854,67 +928,71 @@ function eliminarEquivalencias(Request $request) {
 
       // retornar a la vista ingreso
       return redirect()->route('usuario.egresados');
-      }
+   }
 
-//--------------------------------TOTALES------------------------------------
+   //--------------------------------TOTALES------------------------------------
 
-      function registrarEgresadosTotales(Request $request){
-         $carrera = $request->input('carrera');
-         $año_egreso = $request->input('anio');
-         $cuatrimestre = $request->input('cuatrimestre');
-         $hombres = $request->input('hombres');
-         $mujeres = $request->input('mujeres');
-         $egresados = $hombres + $mujeres;
-         // crear un nuevo registro en la tabla egresados
-         $egresadoTotal = new tb_egresados_totales();
-         $egresadoTotal->carrera = $carrera;
-         $egresadoTotal->egresados = $egresados;
-         $egresadoTotal->anio = $año_egreso;
-         $egresadoTotal->periodo= $cuatrimestre;
-         $egresadoTotal->hombres= $hombres;
-         $egresadoTotal->mujeres= $mujeres;
-         $egresadoTotal->save();
-         return redirect()->route('usuario.egresados');
-      }
-      
-      function eliminarEgresoTotales(Request $request){
-         $id = $request->input('id');
-         $egresadoTotal = tb_egresados_totales::findOrFail($id);
-         $egresadoTotal->delete(); 
-         return redirect()->route('usuario.egresados');
-      }
+   function registrarEgresadosTotales(Request $request)
+   {
+      $carrera = $request->input('carrera');
+      $año_egreso = $request->input('anio');
+      $cuatrimestre = $request->input('cuatrimestre');
+      $hombres = $request->input('hombres');
+      $mujeres = $request->input('mujeres');
+      $egresados = $hombres + $mujeres;
+      // crear un nuevo registro en la tabla egresados
+      $egresadoTotal = new tb_egresados_totales();
+      $egresadoTotal->carrera = $carrera;
+      $egresadoTotal->egresados = $egresados;
+      $egresadoTotal->anio = $año_egreso;
+      $egresadoTotal->periodo = $cuatrimestre;
+      $egresadoTotal->hombres = $hombres;
+      $egresadoTotal->mujeres = $mujeres;
+      $egresadoTotal->save();
+      return redirect()->route('usuario.egresados');
+   }
 
-      function eliminarEgresosTotales(Request $request){
-         $id = $request->id;
-         $egresadoTotal = tb_egresados_totales::whereIn('id', $id);
-         $egresadoTotal->delete();
-         return redirect()->route('usuario.egresados');
-      }
+   function eliminarEgresoTotales(Request $request)
+   {
+      $id = $request->input('id');
+      $egresadoTotal = tb_egresados_totales::findOrFail($id);
+      $egresadoTotal->delete();
+      return redirect()->route('usuario.egresados');
+   }
 
-      function editarEgresoTotales(Request $request){
-         $id = $request->input('id');
-         $carrera = $request->input('carrera');
-         $año_egreso = $request->input('anio');
-         $cuatrimestre = $request->input('cuatrimestre');
-         $hombres = $request->input('hombres');
-         $mujeres = $request->input('mujeres');
-         $egresados = $hombres + $mujeres;
+   function eliminarEgresosTotales(Request $request)
+   {
+      $id = $request->id;
+      $egresadoTotal = tb_egresados_totales::whereIn('id', $id);
+      $egresadoTotal->delete();
+      return redirect()->route('usuario.egresados');
+   }
+
+   function editarEgresoTotales(Request $request)
+   {
+      $id = $request->input('id');
+      $carrera = $request->input('carrera');
+      $año_egreso = $request->input('anio');
+      $cuatrimestre = $request->input('cuatrimestre');
+      $hombres = $request->input('hombres');
+      $mujeres = $request->input('mujeres');
+      $egresados = $hombres + $mujeres;
 
       // actualizar el registro
-         $egresadoTotal = tb_egresados_totales::find($id);
-         $egresadoTotal->carrera = $carrera;
-         $egresadoTotal->egresados = $egresados;
-         $egresadoTotal->anio = $año_egreso;
-         $egresadoTotal->periodo= $cuatrimestre;
-         $egresadoTotal->hombres= $hombres;
-         $egresadoTotal->mujeres= $mujeres;
-         $egresadoTotal->save();
+      $egresadoTotal = tb_egresados_totales::find($id);
+      $egresadoTotal->carrera = $carrera;
+      $egresadoTotal->egresados = $egresados;
+      $egresadoTotal->anio = $año_egreso;
+      $egresadoTotal->periodo = $cuatrimestre;
+      $egresadoTotal->hombres = $hombres;
+      $egresadoTotal->mujeres = $mujeres;
+      $egresadoTotal->save();
 
       // retornar a la vista ingreso
-         return redirect()->route('usuario.egresados');
-      }
+      return redirect()->route('usuario.egresados');
+   }
 
-// ------------------------------ FIN EGRESADOS ----------------------------
+   // ------------------------------ FIN EGRESADOS ----------------------------
 
 
 }
