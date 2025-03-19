@@ -172,26 +172,32 @@ class main extends Controller
    } */
 
    public function titulados()
-   {
-      try {
-         // 1. Concurrent requests para APIs externas
-         $responses = Http::pool(function (Pool $pool) {
-            //Peticiones de la pestaña de egresados
-            $pool->get('https://siiapi.upq.edu.mx:8000/titulados');
-         });
+{
+    try {
+        // 1. Obtener el token de autenticación
+        $token = $this->getAuthToken();
+        //dd($token);
 
-         //Respuestas de la pestaña de egresados
-         $titulados = $responses[0]->successful() ? $responses[0]->json() : [];
+        // 2. Concurrent requests para APIs externas
+        $responses = Http::pool(function (Pool $pool) use ($token) {
+            // Peticiones de la pestaña de titulados
+            $pool->withHeaders([
+                'Authorization' => 'Bearer ' . $token,
+            ])->get('https://siiapi.upq.edu.mx:8000/titulados');
+        });
 
-         return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
+        // 3. Procesar las respuestas
+        $titulados = $responses[0]->successful() ? $responses[0]->json() : [];
+
+        return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
             'titulados' => $titulados,
-         ]);
-      } catch (Exception $e) {
-         return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
+        ]);
+    } catch (Exception $e) {
+        return Inertia::render('menusComponentes/Titulo/TabMenuTitu', [
             'error' => $e->getMessage(),
-         ]);
-      }
-   }
+        ]);
+    }
+}
 
    public function becas()
    {
