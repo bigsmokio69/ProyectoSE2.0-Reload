@@ -23,21 +23,50 @@ use Exception;
 
 class main extends Controller
 {
-   private function getAuthToken()
-   {
-      $response = Http::asForm()->post('https://siiapi.upq.edu.mx:8000/token', [
-         'username' => 'admin', // Cambia esto por el usuario correcto
-         'password' => 'adminpassword', // Cambia esto por la contraseña correcta
+   private function getAuthToken($username, $password) {
+      // URL del endpoint para obtener el token
+      $url = "https://siiapi.upq.edu.mx:8000/token";
+  
+      // Datos que se enviarán en la solicitud POST
+      $data = [
+          'username' => $username,
+          'password' => $password
+      ];
+  
+      // Inicializar cURL
+      $ch = curl_init($url);
+  
+      // Configurar opciones de cURL
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      curl_setopt($ch, CURLOPT_POST, true);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+      curl_setopt($ch, CURLOPT_HTTPHEADER, [
+          'Content-Type: application/x-www-form-urlencoded'
       ]);
-
-      if ($response->successful()) {
-         return $response->json()['access_token'];
-      } else {
-         // Imprimir el error para depuración
-         \Log::error('Error al obtener el token: ' . $response->body());
-         throw new Exception("Error al obtener el token de autenticación: " . $response->body());
+  
+      // Ejecutar la solicitud y obtener la respuesta
+      $response = curl_exec($ch);
+  
+      // Verificar si hubo algún error
+      if (curl_errno($ch)) {
+          throw new Exception('Error en la solicitud cURL: ' . curl_error($ch));
       }
-   }
+  
+      // Cerrar la conexión cURL
+      curl_close($ch);
+  
+      // Decodificar la respuesta JSON
+      $responseData = json_decode($response, true);
+  
+      // Verificar si se obtuvo el token
+      if (isset($responseData['access_token'])) {
+          return $responseData['access_token'];
+      } else {
+          throw new Exception('No se pudo obtener el token de autenticación');
+      }
+  }
+   
+   
 
    private function generarTokenCSRF()
    {
@@ -66,40 +95,54 @@ class main extends Controller
    }
    public function ingreso()
    {
-      try {
-         // 1. Concurrent requests para APIs externas
-         $responses = Http::pool(function (Pool $pool) {
-            $pool->get('https://siiapi.upq.edu.mx:8000/ingresos');
-            $pool->get('https://siiapi.upq.edu.mx:8000/equivalencias');
-            $pool->get('https://siiapi.upq.edu.mx:8000/maestrias');
-            $pool->get('https://siiapi.upq.edu.mx:8000/nuevosIngresos');
-         });
-
-         // 2. Obtener datos locales directamente desde la base de datos
-         $maestrias = $responses[2]->successful() ? $responses[2]->json() : [];        // Reemplazo de API local
-         $ningresos = $responses[3]->successful() ? $responses[3]->json() : [];    // Reemplazo de API local
-
-         // 3. Procesar respuestas de APIs externas
-         $ingresos = $responses[0]->successful() ? $responses[0]->json() : [];
-         $equivalencias = $responses[1]->successful() ? $responses[1]->json() : [];
-         // 4. Carga de datos adicionales
-         $reingresos = tb_re_ingreso::all();
-
-         return Inertia::render('menusComponentes/Ingreso/TabMenu', [
-            'maestrias' => $maestrias,
-            'ingresos' => $ingresos,
-            'equivalencias' => $equivalencias,
-            'ningresos' => $ningresos,
-            'reingresos' => $reingresos,
-         ]);
-
-      } catch (Exception $e) {
-         return Inertia::render('menusComponentes/Ingreso/TabMenu', [
-            'error' => $e->getMessage(),
-         ]);
-      }
+       try {
+           // Obtener el token de autenticación
+           $token = $this->getAuthToken('admin','adminpassword');
+   
+           // 1. Concurrent requests para APIs externas con el token en los headers
+           $responses = Http::pool(function (Pool $pool) use ($token) {
+               return [
+                   'ingresos' => $pool->withHeaders([
+                       'Authorization' => 'Bearer ' . $token,
+                   ])->get('https://siiapi.upq.edu.mx:8000/ingresos'),
+   
+                   'equivalencias' => $pool->withHeaders([
+                       'Authorization' => 'Bearer ' . $token,
+                   ])->get('https://siiapi.upq.edu.mx:8000/equivalencias'),
+   
+                   'maestrias' => $pool->withHeaders([
+                       'Authorization' => 'Bearer ' . $token,
+                   ])->get('https://siiapi.upq.edu.mx:8000/maestrias'),
+   
+                   'nuevosIngresos' => $pool->withHeaders([
+                       'Authorization' => 'Bearer ' . $token,
+                   ])->get('https://siiapi.upq.edu.mx:8000/nuevosIngresos'),
+               ];
+           });
+   
+           // 2. Procesar respuestas de APIs externas
+           $ingresos = $responses['ingresos']->successful() ? $responses['ingresos']->json() : [];
+           $equivalencias = $responses['equivalencias']->successful() ? $responses['equivalencias']->json() : [];
+           $maestrias = $responses['maestrias']->successful() ? $responses['maestrias']->json() : [];
+           $ningresos = $responses['nuevosIngresos']->successful() ? $responses['nuevosIngresos']->json() : [];
+   
+           // 3. Carga de datos adicionales desde la base de datos
+           $reingresos = tb_re_ingreso::all();
+   
+           return Inertia::render('menusComponentes/Ingreso/TabMenu', [
+               'maestrias' => $maestrias,
+               'ingresos' => $ingresos,
+               'equivalencias' => $equivalencias,
+               'ningresos' => $ningresos,
+               'reingresos' => $reingresos,
+           ]);
+   
+       } catch (Exception $e) {
+           return Inertia::render('menusComponentes/Ingreso/TabMenu', [
+               'error' => $e->getMessage(),
+           ]);
+       }
    }
-
 
    public function bajas()
    {
