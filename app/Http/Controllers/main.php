@@ -121,10 +121,10 @@ class main extends Controller
            });
    
            // 2. Procesar respuestas de APIs externas
-           $ingresos = $responses['ingresos']->successful() ? $responses['ingresos']->json() : [];
-           $equivalencias = $responses['equivalencias']->successful() ? $responses['equivalencias']->json() : [];
-           $maestrias = $responses['maestrias']->successful() ? $responses['maestrias']->json() : [];
-           $ningresos = $responses['nuevosIngresos']->successful() ? $responses['nuevosIngresos']->json() : [];
+           $ingresos = $responses[0]->successful() ? $responses[0]->json() : [];
+           $equivalencias = $responses[1]->successful() ? $responses[1]->json() : [];
+           $maestrias = $responses[2]->successful() ? $responses[2]->json() : [];
+           $ningresos = $responses[3]->successful() ? $responses[3]->json() : [];
    
            // 3. Carga de datos adicionales desde la base de datos
            $reingresos = tb_re_ingreso::all();
