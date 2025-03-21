@@ -1,0 +1,4 @@
+#agregar las siguientes variables al .env para que la API funcione
+
+SIIAPI_USERNAME= #nombre de usuario
+SIIAPI_PASSWORD= #contraseña del usuario

@@ -23,8 +23,12 @@ use Exception;
 
 class main extends Controller
 {
-   private function getAuthToken($username, $password) {
-      // URL del endpoint para obtener el token
+   private function getAuthToken() {
+      // Obtener las credenciales desde el archivo .env
+      $username = env('SIIAPI_USERNAME');
+      $password = env('SIIAPI_PASSWORD');
+      
+      // URL del endpoint para obtener el token (hardcodeada en el código)
       $url = "https://siiapi.upq.edu.mx:8000/token";
   
       // Datos que se enviarán en la solicitud POST
@@ -97,7 +101,7 @@ class main extends Controller
    {
        try {
            // Obtener el token de autenticación
-           $token = $this->getAuthToken('admin','adminpassword');
+           $token = $this->getAuthToken();
    
            // 1. Concurrent requests para APIs externas con el token en los headers
            $responses = Http::pool(function (Pool $pool) use ($token) {
@@ -158,7 +162,7 @@ class main extends Controller
    {
        try {
            // Obtener el token de autenticación
-           $token = $this->getAuthToken('admin', 'adminpassword');
+           $token = $this->getAuthToken();
    
            // 1. Concurrent requests para APIs externas con el token en los headers
            $responses = Http::pool(function (Pool $pool) use ($token) {
@@ -230,7 +234,7 @@ class main extends Controller
 {
     try {
         // 1. Obtener el token de autenticación
-        $token = $this->getAuthToken('admin', 'adminpassword');
+        $token = $this->getAuthToken();
         //dd($token);
 
         // 2. Concurrent requests para APIs externas
@@ -307,7 +311,7 @@ class main extends Controller
    {
        try {
            // 1. Obtener token de autenticación
-           $token = $this->getAuthToken('admin', 'adminpassword');
+           $token = $this->getAuthToken();
    
            // 2. Concurrent requests con autenticación
            $responses = Http::pool(function (Pool $pool) use ($token) {
