@@ -191,41 +191,6 @@ class main extends Controller
                'error' => $e->getMessage(),
            ]);
        }
-       try {
-           // Obtener el token de autenticación
-           $token = $this->getAuthToken('admin', 'adminpassword');
-   
-           // 1. Concurrent requests para APIs externas con el token en los headers
-           $responses = Http::pool(function (Pool $pool) use ($token) {
-               return [
-                   'egresados' => $pool->withHeaders([
-                       'Authorization' => 'Bearer ' . $token,
-                   ])->get('https://siiapi.upq.edu.mx:8000/egresados'),
-   
-                   'egresadostotales' => $pool->withHeaders([
-                       'Authorization' => 'Bearer ' . $token,
-                   ])->get('https://siiapi.upq.edu.mx:8000/egresadostotales'),
-               ];
-           });
-   
-           // 2. Procesar respuestas de APIs externas
-           $egresados = optional($responses[0])->successful() ? $responses[0]->json() : [];
-           $egresadostotales = optional($responses[1])->successful() ? $responses[1]->json() : [];
-   
-           // 3. Carga de datos adicionales desde la base de datos
-           $egresados_totales = tb_egresados_totales::all();
-   
-           return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
-               'egresados' => $egresados,
-               'totales' => $egresadostotales,
-               'egresados_totales' => $egresados_totales,
-           ]);
-   
-       } catch (Exception $e) {
-           return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
-               'error' => $e->getMessage(),
-           ]);
-       }
    }
    #holamundo .D
 
