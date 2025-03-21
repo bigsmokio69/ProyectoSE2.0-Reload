@@ -191,7 +191,43 @@ class main extends Controller
                'error' => $e->getMessage(),
            ]);
        }
+       try {
+           // Obtener el token de autenticación
+           $token = $this->getAuthToken('admin', 'adminpassword');
+   
+           // 1. Concurrent requests para APIs externas con el token en los headers
+           $responses = Http::pool(function (Pool $pool) use ($token) {
+               return [
+                   'egresados' => $pool->withHeaders([
+                       'Authorization' => 'Bearer ' . $token,
+                   ])->get('https://siiapi.upq.edu.mx:8000/egresados'),
+   
+                   'egresadostotales' => $pool->withHeaders([
+                       'Authorization' => 'Bearer ' . $token,
+                   ])->get('https://siiapi.upq.edu.mx:8000/egresadostotales'),
+               ];
+           });
+   
+           // 2. Procesar respuestas de APIs externas
+           $egresados = optional($responses[0])->successful() ? $responses[0]->json() : [];
+           $egresadostotales = optional($responses[1])->successful() ? $responses[1]->json() : [];
+   
+           // 3. Carga de datos adicionales desde la base de datos
+           $egresados_totales = tb_egresados_totales::all();
+   
+           return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
+               'egresados' => $egresados,
+               'totales' => $egresadostotales,
+               'egresados_totales' => $egresados_totales,
+           ]);
+   
+       } catch (Exception $e) {
+           return Inertia::render('menusComponentes/Egresados/TabMenuEgre', [
+               'error' => $e->getMessage(),
+           ]);
+       }
    }
+   #holamundo .D
 
    /* public function titulados()
    Comeno esta vieja funcion de titulados no se porque, supongo que por si acaso
@@ -304,27 +340,42 @@ class main extends Controller
 
    public function transporte()
    {
-      try {
-         $responses = Http::pool(function (Pool $pool) {
-            //Peticiones de la pestaña de egresados
-            $pool->get('https://siiapi.upq.edu.mx:8000/transporte_solicitudes');
-            $pool->get('https://siiapi.upq.edu.mx:8000/rutas');
-         });
-
-         //Respuestas de la pestaña de egresados
-         $solicitudes = $responses[0]->successful() ? $responses[0]->json() : [];
-         $rutas = $responses[1]->successful() ? $responses[1]->json() : [];
-
-
-         return Inertia::render('menusComponentes/Transporte/TabMenu', [
-            'solicitudes' => $solicitudes,
-            'rutas' => $rutas,
-         ]);
-      } catch (Exception $e) {
-         return Inertia::render('menusComponentes/Transporte/TabMenu', [
-            'error' => $e->getMessage(),
-         ]);
-      }
+       try {
+           // 1. Obtener token de autenticación
+           $token = $this->getAuthToken('admin', 'adminpassword');
+   
+           // 2. Concurrent requests con autenticación
+           $responses = Http::pool(function (Pool $pool) use ($token) {
+               return [
+                   $pool->withHeaders([
+                       'Authorization' => 'Bearer ' . $token,
+                   ])->get('https://siiapi.upq.edu.mx:8000/transporte_solicitudes'),
+                   
+                   $pool->withHeaders([
+                       'Authorization' => 'Bearer ' . $token,
+                   ])->get('https://siiapi.upq.edu.mx:8000/rutas')
+               ];
+           });
+   
+           // 3. Procesar respuestas por índice numérico
+           $solicitudes = isset($responses[0]) && $responses[0]->successful() 
+                        ? $responses[0]->json() 
+                        : [];
+   
+           $rutas = isset($responses[1]) && $responses[1]->successful() 
+                  ? $responses[1]->json() 
+                  : [];
+   
+           return Inertia::render('menusComponentes/Transporte/TabMenu', [
+               'solicitudes' => $solicitudes,
+               'rutas' => $rutas,
+           ]);
+   
+       } catch (Exception $e) {
+           return Inertia::render('menusComponentes/Transporte/TabMenu', [
+               'error' => $e->getMessage(),
+           ]);
+       }
    }
 
    public function cambioDeCarrera()
