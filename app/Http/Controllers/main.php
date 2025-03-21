@@ -192,6 +192,7 @@ class main extends Controller
            ]);
        }
    }
+   #holamundo .D
 
    /* public function titulados()
    Comeno esta vieja funcion de titulados no se porque, supongo que por si acaso
